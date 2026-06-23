@@ -26,6 +26,9 @@ jobs:
       - name: 의존성 설치
         run: pip install -r requirements.txt
 
+      - name: headless 브라우저 설치 (JS 게시판 렌더링용)
+        run: python -m playwright install --with-deps chromium
+
       - name: 공고 수집 + 메일 발송
         env:
           BIZINFO_KEY: ${{ secrets.BIZINFO_KEY }}
