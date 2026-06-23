@@ -1,0 +1,44 @@
+name: 창업지원 공고 알림
+
+on:
+  schedule:
+    # 매주 월·목 09:00 KST (UTC 00:00). 필요시 cron 추가/수정
+    - cron: "0 0 * * 1,4"
+  workflow_dispatch:        # 수동 실행 버튼 (테스트용)
+
+permissions:
+  contents: write           # seen.json 커밋 위해 필요
+
+concurrency:
+  group: startup-alert
+  cancel-in-progress: false
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: 의존성 설치
+        run: pip install -r requirements.txt
+
+      - name: 공고 수집 + 메일 발송
+        env:
+          BIZINFO_KEY: ${{ secrets.BIZINFO_KEY }}
+          KSTARTUP_KEY: ${{ secrets.KSTARTUP_KEY }}
+          NAVER_USER: ${{ secrets.NAVER_USER }}
+          NAVER_PASS: ${{ secrets.NAVER_PASS }}
+          MAIL_TO: ${{ secrets.MAIL_TO }}
+        run: python main.py
+
+      - name: 발송기록(seen.json) 커밋
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add state/seen.json
+          git diff --staged --quiet || git commit -m "chore: update seen.json [skip ci]"
+          git push
