@@ -1,8 +1,9 @@
 """K-Startup(창업진흥원) 사업공고 오픈 API 커넥터 — data.go.kr.
 
 데이터셋: 창업진흥원_K-Startup 조회서비스 (data.go.kr/data/15125364).
-응답이 JSON/XML 둘 다 가능 — 여기선 XML(response/body/items/item)을 파싱.
-엔드포인트/필드명이 개편될 수 있으므로 실패 시 자진신고된다.
+응답 XML 구조는 <item> 아래에 <col name="필드명">값</col> 형태다.
+(과거 <필드명>값</필드명> 구조에서 개편됨 → 2026-06 교정)
+필드/엔드포인트가 또 바뀌면 0건 → 예외로 자진신고된다.
 """
 from __future__ import annotations
 
@@ -14,19 +15,36 @@ from core.models import Item
 
 SOURCE = "K-Startup"
 
-# 응답 필드명이 버전마다 달라 후보를 순서대로 시도
-_TITLE_KEYS = ("biz_pbanc_nm", "pbanc_nm", "intg_pbanc_biz_nm", "title")
-_ORG_KEYS = ("pbanc_ntrp_nm", "spnsr_organ_nm", "supt_biz_intrd_nm", "organ")
-_PERIOD_KEYS = ("pbanc_rcpt_bgng_dt", "rcrt_prgs_yn", "reqstBeginEndDe")
-_URL_KEYS = ("detl_pg_url", "biz_pbanc_url", "pbancUrl")
+# col name 후보 (버전별 차이 대비, 순서대로 시도)
+_TITLE_KEYS = ("biz_pbanc_nm", "intg_pbanc_biz_nm", "pbanc_nm", "title")
+_ORG_KEYS = ("pbanc_ntrp_nm", "sprv_inst", "spnsr_organ_nm", "organ")
+_URL_KEYS = ("detl_pg_url", "biz_aply_url", "biz_gdnc_url", "pbancUrl")
+_BGN_KEYS = ("pbanc_rcpt_bgng_dt",)
+_END_KEYS = ("pbanc_rcpt_end_dt",)
+_REGION_KEYS = ("supt_regin",)
 
 
-def _first(node: ET.Element, keys) -> str:
+def _cols(node: ET.Element) -> dict[str, str]:
+    """<item> 의 <col name=..> 들을 {name: text} 로 평탄화."""
+    out: dict[str, str] = {}
+    for col in node.findall("col"):
+        name = col.get("name")
+        if name:
+            out[name] = (col.text or "").strip()
+    return out
+
+
+def _first(cols: dict[str, str], keys) -> str:
     for k in keys:
-        v = node.findtext(k)
-        if v and v.strip():
-            return v.strip()
+        v = cols.get(k)
+        if v:
+            return v
     return ""
+
+
+def _ymd(s: str) -> str:
+    """20260629 -> 2026-06-29 (그 외 형식은 원문 유지)."""
+    return f"{s[:4]}-{s[4:6]}-{s[6:8]}" if len(s) == 8 and s.isdigit() else s
 
 
 def fetch() -> list[Item]:
@@ -47,14 +65,17 @@ def fetch() -> list[Item]:
 
     items: list[Item] = []
     for node in root.findall(".//item"):
-        title = _first(node, _TITLE_KEYS)
+        cols = _cols(node)
+        title = _first(cols, _TITLE_KEYS)
         if not title:
             continue
-        url = _first(node, _URL_KEYS) or "https://www.k-startup.go.kr/"
+        bgn, end = _first(cols, _BGN_KEYS), _first(cols, _END_KEYS)
+        period = " ~ ".join(filter(None, (_ymd(bgn), _ymd(end))))
         items.append(Item(
-            source=SOURCE, category="", title=title, url=url,
-            org=_first(node, _ORG_KEYS), period=_first(node, _PERIOD_KEYS),
-            region="전국",
+            source=SOURCE, category="", title=title,
+            url=_first(cols, _URL_KEYS) or "https://www.k-startup.go.kr/",
+            org=_first(cols, _ORG_KEYS), period=period,
+            region=_first(cols, _REGION_KEYS) or "전국",
         ))
     if not items:
         raise RuntimeError("응답에서 item 0건 (엔드포인트/serviceKey/필드명 확인 필요)")

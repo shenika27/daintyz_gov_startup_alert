@@ -11,11 +11,23 @@
 | 구분 | 소스 | 수집 방식 |
 |---|---|---|
 | A 종합 | 기업마당(bizinfo), K-Startup | 오픈 API (안정) |
-| B 분야 | KOCCA, welcon, 한국디자인진흥원, 소상공인마당 | 스크래핑 |
+| B 분야 | KOCCA, welcon, 한국디자인진흥원 | 스크래핑 |
 | C 지역·타깃 | 여성기업센터, 서울SBA, 경기GCON, 전북(jcon/JICA/jbci), 위비티 | 스크래핑 |
 
-> 스크래퍼 셀렉터는 `connectors/sources.py` 의 초기 추정값이다. 첫 메일의 "유지보수 필요"
-> 목록을 보고 해당 소스 셀렉터만 실제 DOM에 맞게 한 줄씩 교정하면 된다.
+> 소상공인마당은 소상공인24(sbiz24.kr) 인증형 SPA로 이전돼 스크래핑 불가. 소상공인 공고는
+> 기업마당·K-Startup API로 커버되므로 제거했다.
+
+### 스크래퍼 추출 모드 (`connectors/sources.py`)
+
+셀렉터 대신 **상세페이지 링크 패턴**으로 공고를 수확한다 — 표/리스트 마크업이 바뀌어도
+링크 URL 패턴만 유지되면 안 깨진다. 개편 시 해당 소스 줄의 정규식 한 줄만 고치면 된다.
+
+- `link_re` : 상세 href 정규식 (권장·저유지보수)
+- `onclick_re` + `url_tpl` : href 없이 `onclick` JS로 여는 게시판 (ID 추출 → URL 조립)
+- `row`/`link`/`date` : 정적 표 CSS 셀렉터 (기존 방식)
+- `js: true` : JS 렌더링 게시판은 headless Chromium(Playwright)으로 렌더 후 파싱
+
+> 수집 실패 시 0건 → 예외 → 메일 하단 "⚠ 유지보수 필요"로 자진신고된다.
 
 ## 분야 키워드
 
@@ -47,6 +59,7 @@
 ## 로컬 테스트
 ```bash
 pip install -r requirements.txt
+python -m playwright install chromium      # JS 게시판 렌더링용 (최초 1회)
 export BIZINFO_KEY=... KSTARTUP_KEY=... NAVER_USER=... NAVER_PASS=...
 python main.py
 ```
@@ -58,7 +71,7 @@ core/                    config·필터·중복제거·렌더·메일·http
 connectors/
   api_bizinfo.py         기업마당 API
   api_kstartup.py        K-Startup API
-  generic_scraper.py     셀렉터 기반 범용 스크래퍼
+  generic_scraper.py     링크패턴/onclick/셀렉터 범용 스크래퍼
   sources.py             스크래퍼 소스 목록(여기만 고치면 됨)
 state/seen.json          발송기록(중복방지) — Actions가 자동 커밋
 ```

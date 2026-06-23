@@ -1,2 +1,3 @@
 requests>=2.31
 beautifulsoup4>=4.12
+playwright>=1.44          # JS 렌더링 게시판용 headless Chromium (welcon·GCON 등)
