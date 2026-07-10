@@ -92,7 +92,8 @@ SCRAPER_SOURCES: list[dict] = [
     {
         "name": "위비티(공모전)", "region": "전국",
         "url": "https://www.wevity.com/?c=find&s=1&gbn=list&gp=1&sw=캐릭터",
-        "base": "https://www.wevity.com",
-        "row": "ul.list li, table tbody tr", "link": "a", "date": ".day, .date",
+        "base": "https://www.wevity.com/",
+        # 상세 링크가 ?...gbn=view...ix=<번호> 로 안정적 → link_re 저유지보수 모드
+        "link_re": r"gbn=view.*?ix=\d+",
     },
 ]

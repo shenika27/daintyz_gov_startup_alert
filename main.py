@@ -15,7 +15,7 @@ from connectors import api_bizinfo, api_kstartup
 from connectors.generic_scraper import make_fetch
 from connectors.sources import SCRAPER_SOURCES
 from core import config, dedup, mailer
-from core.filtering import filter_items
+from core.filtering import filter_items, refilter_offtopic
 from core.models import ConnectorResult, run_connector
 from core.render import render
 
@@ -34,7 +34,8 @@ def main() -> int:
     results = collect()
 
     all_items = [it for r in results if r.ok for it in r.items]
-    matched = filter_items(all_items)
+    matched1 = filter_items(all_items)         # 1차: 분야 커버리지(넓게)
+    matched = refilter_offtopic(matched1)      # 2차: 캐릭터/디자인 무관 타분야만 제외
 
     seen = dedup.load_seen()
     first_run = len(seen) == 0
@@ -47,7 +48,8 @@ def main() -> int:
 
     # 로그 (Actions 콘솔)
     print(f"수집 소스 {len(results)}곳 / 정상 {len(results) - len(broken)} / "
-          f"수집 {len(all_items)}건 / 매칭 {len(matched)} / 신규 {len(new_items)}")
+          f"수집 {len(all_items)}건 / 1차매칭 {len(matched1)} / 타분야컷후 {len(matched)} / "
+          f"신규 {len(new_items)}")
     for r in broken:
         print(f"  ⚠ 점검필요: {r.source} -> {r.error}")
 

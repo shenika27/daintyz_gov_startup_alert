@@ -2,8 +2,8 @@ name: 창업지원 공고 알림
 
 on:
   schedule:
-    # 매주 월·목 09:00 KST (UTC 00:00). 필요시 cron 추가/수정
-    - cron: "0 0 * * 1,4"
+    # 매주 월·목 10:00 KST (UTC 01:00). 필요시 cron 추가/수정
+    - cron: "0 1 * * 1,4"
   workflow_dispatch:        # 수동 실행 버튼 (테스트용)
 
 permissions:

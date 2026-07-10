@@ -1,7 +1,7 @@
 """키워드 매칭 / 노이즈 제거 / 분야 태깅."""
 from __future__ import annotations
 
-from .config import CATEGORIES, EXCLUDE
+from .config import CATEGORIES, EXCLUDE, KEEP_SIGNALS, OFF_TOPIC_FIELDS
 from .models import Item
 
 
@@ -46,3 +46,22 @@ def filter_items(items: list[Item]) -> list[Item]:
             seen.add(it.uid)
             out.append(it)
     return out
+
+
+def is_off_topic(item: Item) -> bool:
+    """제목이 명백히 다른 분야를 가리키고, 캐릭터/디자인 신호가 전혀 없는가.
+
+    여성·일반 창업지원처럼 분야 특정이 없는 공고는 False(=유지). 제목에
+    타분야 키워드가 있어도 KEEP_SIGNALS(캐릭터·디자인 등)가 함께 있으면 유지.
+    """
+    n = _norm(item.title)
+    if not any(_norm(k) in n for k in OFF_TOPIC_FIELDS):
+        return False
+    if any(_norm(s) in n for s in KEEP_SIGNALS):
+        return False
+    return True
+
+
+def refilter_offtopic(items: list[Item]) -> list[Item]:
+    """발송 직전 2차 필터 — 캐릭터/디자인과 무관한 타분야 공고만 제외한다."""
+    return [it for it in items if not is_off_topic(it)]
